@@ -1,0 +1,8 @@
+{
+  "name": "3d-tic-tac-toe",
+  "private": true,
+  "dependencies": {
+    "@netlify/blobs": "latest",
+    "@netlify/functions": "latest"
+  }
+}

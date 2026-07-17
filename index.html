@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>3D Tic-Tac-Toe</title>
+<style>
+  :root {
+    --bg-1: #0b1020;
+    --bg-2: #171f38;
+    --panel: rgba(20, 27, 49, 0.86);
+    --line: rgba(255, 255, 255, 0.26);
+    --cell: rgba(255, 255, 255, 0.08);
+    --cell-hover: rgba(255, 255, 255, 0.18);
+    --x: #6ee7ff;
+    --o: #ff7dc8;
+    --win: #ffe66d;
+    --text: #f7f8ff;
+    --muted: #aab2cc;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    min-height: 100%;
+    background:
+      radial-gradient(circle at 20% 10%, #27345f 0, transparent 32rem),
+      radial-gradient(circle at 80% 90%, #4d1d55 0, transparent 34rem),
+      linear-gradient(160deg, var(--bg-1), var(--bg-2));
+    color: var(--text);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+      "Segoe UI", sans-serif;
+    overflow-x: hidden;
+  }
+
+  body {
+    display: grid;
+    place-items: center;
+    padding: 20px;
+  }
+
+  .app {
+    width: min(1100px, 100%);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 280px;
+    gap: 20px;
+    align-items: stretch;
+  }
+
+  .game-panel,
+  .side-panel {
+    background: var(--panel);
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 24px;
+    box-shadow: 0 24px 70px rgba(0,0,0,.38);
+    backdrop-filter: blur(16px);
+  }
+
+  .game-panel {
+    min-height: 680px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .topbar {
+    padding: 22px 24px 14px;
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: center;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+  }
+
+  h1 {
+    font-size: clamp(1.35rem, 3vw, 2.15rem);
+    margin: 0;
+    letter-spacing: -.04em;
+  }
+
+  .subtitle {
+    margin-top: 5px;
+    color: var(--muted);
+    font-size: .94rem;
+  }
+
+  .turn-badge {
+    flex: 0 0 auto;
+    border: 1px solid rgba(255,255,255,.13);
+    background: rgba(255,255,255,.07);
+    border-radius: 999px;
+    padding: 10px 14px;
+    font-weight: 800;
+    min-width: 116px;
+    text-align: center;
+  }
+
+  .turn-badge.x { color: var(--x); }
+  .turn-badge.o { color: var(--o); }
+
+  .scene-wrap {
+    position: relative;
+    flex: 1;
+    min-height: 560px;
+    display: grid;
+    place-items: center;
+    perspective: 1100px;
+    touch-action: none;
+    cursor: grab;
+    user-select: none;
+  }
+
+  .scene-wrap.dragging { cursor: grabbing; }
+
+  .scene {
+    position: relative;
+    width: 330px;
+    height: 330px;
+    transform-style: preserve-3d;
+    transform: rotateX(-22deg) rotateY(32deg);
+    transition: transform .15s ease-out;
+  }
+
+  .scene.dragging { transition: none; }
+
+  .layer {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-columns: repeat(3, 92px);
+    grid-template-rows: repeat(3, 92px);
+    gap: 9px;
+    place-content: center;
+    transform-style: preserve-3d;
+  }
+
+  .layer::before {
+    content: "";
+    position: absolute;
+    inset: 2px;
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 20px;
+    background: rgba(255,255,255,.025);
+    box-shadow: inset 0 0 45px rgba(255,255,255,.025);
+    pointer-events: none;
+  }
+
+  .cell {
+    position: relative;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: var(--cell);
+    color: white;
+    display: grid;
+    place-items: center;
+    font-size: 3.6rem;
+    font-weight: 900;
+    line-height: 1;
+    cursor: pointer;
+    transform: translateZ(2px);
+    box-shadow:
+      inset 0 0 18px rgba(255,255,255,.025),
+      0 8px 16px rgba(0,0,0,.20);
+    transition: background .15s, transform .15s, box-shadow .15s;
+  }
+
+  .cell:hover:not(:disabled),
+  .cell:focus-visible:not(:disabled) {
+    background: var(--cell-hover);
+    transform: translateZ(8px) scale(1.035);
+    outline: none;
+    box-shadow:
+      0 0 0 3px rgba(255,255,255,.12),
+      0 12px 24px rgba(0,0,0,.28);
+  }
+
+  .cell:disabled { cursor: default; }
+
+  .cell.x {
+    color: var(--x);
+    text-shadow: 0 0 16px rgba(110,231,255,.55);
+  }
+
+  .cell.o {
+    color: var(--o);
+    text-shadow: 0 0 16px rgba(255,125,200,.5);
+  }
+
+  .cell.win {
+    color: var(--win);
+    background: rgba(255,230,109,.20);
+    border-color: rgba(255,230,109,.85);
+    box-shadow:
+      0 0 0 2px rgba(255,230,109,.18),
+      0 0 30px rgba(255,230,109,.28);
+    animation: pulse 1s ease-in-out infinite alternate;
+  }
+
+  @keyframes pulse {
+    from { transform: translateZ(4px) scale(1); }
+    to { transform: translateZ(9px) scale(1.05); }
+  }
+
+  .layer-label {
+    position: absolute;
+    left: -48px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: rgba(255,255,255,.55);
+    font-size: .8rem;
+    font-weight: 800;
+    letter-spacing: .12em;
+  }
+
+  .hint {
+    position: absolute;
+    left: 50%;
+    bottom: 17px;
+    transform: translateX(-50%);
+    color: var(--muted);
+    font-size: .82rem;
+    text-align: center;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  .side-panel {
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .status {
+    min-height: 94px;
+    border-radius: 18px;
+    padding: 17px;
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.1);
+  }
+
+  .status-label {
+    color: var(--muted);
+    font-size: .78rem;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    font-weight: 800;
+  }
+
+  .status-text {
+    margin-top: 8px;
+    font-size: 1.25rem;
+    font-weight: 850;
+    line-height: 1.25;
+  }
+
+  .score-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .score {
+    border-radius: 16px;
+    background: rgba(255,255,255,.055);
+    border: 1px solid rgba(255,255,255,.09);
+    padding: 14px;
+    text-align: center;
+  }
+
+  .score .symbol {
+    font-size: 1.3rem;
+    font-weight: 950;
+  }
+
+  .score .number {
+    font-size: 1.8rem;
+    font-weight: 900;
+    margin-top: 2px;
+  }
+
+  .score.x .symbol { color: var(--x); }
+  .score.o .symbol { color: var(--o); }
+
+  button.control {
+    width: 100%;
+    border: 0;
+    border-radius: 14px;
+    padding: 13px 14px;
+    font: inherit;
+    font-weight: 850;
+    cursor: pointer;
+    color: var(--text);
+    background: rgba(255,255,255,.1);
+    border: 1px solid rgba(255,255,255,.12);
+    transition: transform .15s, background .15s;
+  }
+
+  button.control:hover {
+    background: rgba(255,255,255,.16);
+    transform: translateY(-1px);
+  }
+
+  button.control.primary {
+    color: #111527;
+    background: linear-gradient(135deg, #d9fbff, #ffcfeb);
+    border-color: transparent;
+  }
+
+  .controls {
+    display: grid;
+    gap: 10px;
+  }
+
+  .help {
+    margin-top: auto;
+    color: var(--muted);
+    font-size: .86rem;
+    line-height: 1.55;
+  }
+
+  .help strong { color: var(--text); }
+
+  .layer-buttons {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 7px;
+  }
+
+  .layer-buttons button {
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,.11);
+    background: rgba(255,255,255,.065);
+    color: var(--text);
+    padding: 9px 4px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .layer-buttons button:hover {
+    background: rgba(255,255,255,.14);
+  }
+
+  @media (max-width: 820px) {
+    body { padding: 10px; }
+    .app { grid-template-columns: 1fr; }
+    .game-panel { min-height: 650px; }
+    .side-panel { min-height: auto; }
+    .scene {
+      width: 290px;
+      height: 290px;
+    }
+    .layer {
+      grid-template-columns: repeat(3, 78px);
+      grid-template-rows: repeat(3, 78px);
+      gap: 8px;
+    }
+    .cell { font-size: 3rem; }
+    .scene-wrap { min-height: 525px; }
+    .layer-label { left: -42px; }
+  }
+
+  @media (max-width: 420px) {
+    .scene { transform: rotateX(-20deg) rotateY(28deg) scale(.88); }
+    .topbar { padding-inline: 16px; }
+    .turn-badge { min-width: 96px; font-size: .86rem; }
+  }
+</style>
+</head>
+<body>
+  <main class="app">
+    <section class="game-panel">
+      <header class="topbar">
+        <div>
+          <h1>3D Tic-Tac-Toe</h1>
+          <div class="subtitle">Three layers. Twenty-seven spaces. Forty-nine ways to win.</div>
+        </div>
+        <div id="turnBadge" class="turn-badge x">X's turn</div>
+      </header>
+
+      <div id="sceneWrap" class="scene-wrap" aria-label="Rotatable 3D Tic-Tac-Toe board">
+        <div id="scene" class="scene"></div>
+        <div class="hint">Drag anywhere around the board to rotate • Tap a square to play</div>
+      </div>
+    </section>
+
+    <aside class="side-panel">
+      <div class="status" aria-live="polite">
+        <div class="status-label">Game status</div>
+        <div id="statusText" class="status-text">Player X begins.</div>
+      </div>
+
+      <div class="score-grid" aria-label="Score">
+        <div class="score x">
+          <div class="symbol">Player X</div>
+          <div id="scoreX" class="number">0</div>
+        </div>
+        <div class="score o">
+          <div class="symbol">Player O</div>
+          <div id="scoreO" class="number">0</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="status-label" style="margin-bottom:8px;">View a layer</div>
+        <div class="layer-buttons">
+          <button data-view="top">Top</button>
+          <button data-view="middle">Middle</button>
+          <button data-view="bottom">Bottom</button>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button id="resetRound" class="control primary">New round</button>
+        <button id="resetMatch" class="control">Reset match score</button>
+        <button id="resetView" class="control">Reset board angle</button>
+      </div>
+
+      <div class="help">
+        <strong>How to win:</strong> Place three matching marks in a straight line.
+        Lines can run across a layer, vertically through layers, diagonally across
+        layers, or corner-to-corner through the entire cube.
+      </div>
+    </aside>
+  </main>
+
+<script>
+(() => {
+  const SIZE = 3;
+  const LAYER_SPACING = 118;
+  const board = Array(SIZE * SIZE * SIZE).fill(null);
+
+  let currentPlayer = "X";
+  let gameOver = false;
+  let score = { X: 0, O: 0 };
+  let rotationX = -22;
+  let rotationY = 32;
+
+  const scene = document.getElementById("scene");
+  const sceneWrap = document.getElementById("sceneWrap");
+  const statusText = document.getElementById("statusText");
+  const turnBadge = document.getElementById("turnBadge");
+  const scoreX = document.getElementById("scoreX");
+  const scoreO = document.getElementById("scoreO");
+
+  const indexOf = (x, y, z) => z * 9 + y * 3 + x;
+
+  function generateWinningLines() {
+    const lines = [];
+    const seen = new Set();
+    const directions = [];
+
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dz = -1; dz <= 1; dz++) {
+          if (dx === 0 && dy === 0 && dz === 0) continue;
+          const firstNonZero = [dx, dy, dz].find(v => v !== 0);
+          if (firstNonZero < 0) continue;
+          directions.push([dx, dy, dz]);
+        }
+      }
+    }
+
+    for (let x = 0; x < SIZE; x++) {
+      for (let y = 0; y < SIZE; y++) {
+        for (let z = 0; z < SIZE; z++) {
+          for (const [dx, dy, dz] of directions) {
+            const coords = [];
+            for (let step = 0; step < SIZE; step++) {
+              const nx = x + dx * step;
+              const ny = y + dy * step;
+              const nz = z + dz * step;
+              if (
+                nx < 0 || nx >= SIZE ||
+                ny < 0 || ny >= SIZE ||
+                nz < 0 || nz >= SIZE
+              ) {
+                coords.length = 0;
+                break;
+              }
+              coords.push(indexOf(nx, ny, nz));
+            }
+
+            if (coords.length === SIZE) {
+              const key = [...coords].sort((a, b) => a - b).join("-");
+              if (!seen.has(key)) {
+                seen.add(key);
+                lines.push(coords);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return lines;
+  }
+
+  const winningLines = generateWinningLines();
+
+  function createBoard() {
+    scene.innerHTML = "";
+
+    for (let z = 0; z < SIZE; z++) {
+      const layer = document.createElement("div");
+      layer.className = "layer";
+      layer.dataset.layer = z;
+      const depth = (1 - z) * LAYER_SPACING;
+      layer.style.transform = `translateZ(${depth}px)`;
+
+      const label = document.createElement("span");
+      label.className = "layer-label";
+      label.textContent = ["TOP", "MIDDLE", "BOTTOM"][z];
+      layer.appendChild(label);
+
+      for (let y = 0; y < SIZE; y++) {
+        for (let x = 0; x < SIZE; x++) {
+          const i = indexOf(x, y, z);
+          const button = document.createElement("button");
+          button.className = "cell";
+          button.type = "button";
+          button.dataset.index = i;
+          button.setAttribute(
+            "aria-label",
+            `${["Top", "Middle", "Bottom"][z]} layer, row ${y + 1}, column ${x + 1}`
+          );
+          button.addEventListener("click", () => playMove(i));
+          layer.appendChild(button);
+        }
+      }
+
+      scene.appendChild(layer);
+    }
+  }
+
+  function playMove(index) {
+    if (gameOver || board[index]) return;
+
+    board[index] = currentPlayer;
+    const cell = scene.querySelector(`[data-index="${index}"]`);
+    cell.textContent = currentPlayer;
+    cell.classList.add(currentPlayer.toLowerCase());
+    cell.disabled = true;
+    cell.setAttribute("aria-label", `${cell.getAttribute("aria-label")}, ${currentPlayer}`);
+
+    const winLine = findWin(currentPlayer);
+    if (winLine) {
+      gameOver = true;
+      score[currentPlayer]++;
+      updateScores();
+      winLine.forEach(i => {
+        scene.querySelector(`[data-index="${i}"]`).classList.add("win");
+      });
+      statusText.textContent = `Player ${currentPlayer} wins!`;
+      turnBadge.textContent = `${currentPlayer} wins`;
+      turnBadge.className = `turn-badge ${currentPlayer.toLowerCase()}`;
+      disableEmptyCells();
+      return;
+    }
+
+    if (board.every(Boolean)) {
+      gameOver = true;
+      statusText.textContent = "The board is full — draw game.";
+      turnBadge.textContent = "Draw";
+      turnBadge.className = "turn-badge";
+      return;
+    }
+
+    currentPlayer = currentPlayer === "X" ? "O" : "X";
+    statusText.textContent = `Player ${currentPlayer}, choose a space.`;
+    turnBadge.textContent = `${currentPlayer}'s turn`;
+    turnBadge.className = `turn-badge ${currentPlayer.toLowerCase()}`;
+  }
+
+  function findWin(player) {
+    return winningLines.find(line => line.every(i => board[i] === player)) || null;
+  }
+
+  function disableEmptyCells() {
+    scene.querySelectorAll(".cell").forEach(cell => cell.disabled = true);
+  }
+
+  function resetRound() {
+    board.fill(null);
+    currentPlayer = "X";
+    gameOver = false;
+    createBoard();
+    statusText.textContent = "Player X begins.";
+    turnBadge.textContent = "X's turn";
+    turnBadge.className = "turn-badge x";
+  }
+
+  function resetMatch() {
+    score = { X: 0, O: 0 };
+    updateScores();
+    resetRound();
+  }
+
+  function updateScores() {
+    scoreX.textContent = score.X;
+    scoreO.textContent = score.O;
+  }
+
+  function applyRotation() {
+    scene.style.transform = `rotateX(${rotationX}deg) rotateY(${rotationY}deg)`;
+  }
+
+  document.getElementById("resetRound").addEventListener("click", resetRound);
+  document.getElementById("resetMatch").addEventListener("click", resetMatch);
+  document.getElementById("resetView").addEventListener("click", () => {
+    rotationX = -22;
+    rotationY = 32;
+    applyRotation();
+  });
+
+  document.querySelectorAll("[data-view]").forEach(button => {
+    button.addEventListener("click", () => {
+      const view = button.dataset.view;
+      const angles = {
+        top: [-74, 0],
+        middle: [-6, 0],
+        bottom: [62, 0]
+      };
+      [rotationX, rotationY] = angles[view];
+      applyRotation();
+    });
+  });
+
+  let dragging = false;
+  let startX = 0;
+  let startY = 0;
+  let startRotX = 0;
+  let startRotY = 0;
+  let moved = false;
+
+  sceneWrap.addEventListener("pointerdown", e => {
+    dragging = true;
+    moved = false;
+    startX = e.clientX;
+    startY = e.clientY;
+    startRotX = rotationX;
+    startRotY = rotationY;
+    sceneWrap.classList.add("dragging");
+    scene.classList.add("dragging");
+    sceneWrap.setPointerCapture(e.pointerId);
+  });
+
+  sceneWrap.addEventListener("pointermove", e => {
+    if (!dragging) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+
+    if (Math.hypot(dx, dy) > 5) moved = true;
+
+    rotationY = startRotY + dx * 0.45;
+    rotationX = Math.max(-85, Math.min(85, startRotX - dy * 0.38));
+    applyRotation();
+  });
+
+  sceneWrap.addEventListener("pointerup", e => {
+    dragging = false;
+    sceneWrap.classList.remove("dragging");
+    scene.classList.remove("dragging");
+    try { sceneWrap.releasePointerCapture(e.pointerId); } catch (_) {}
+  });
+
+  sceneWrap.addEventListener("pointercancel", () => {
+    dragging = false;
+    sceneWrap.classList.remove("dragging");
+    scene.classList.remove("dragging");
+  });
+
+  sceneWrap.addEventListener("click", e => {
+    if (moved && e.target.closest(".cell")) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      moved = false;
+    }
+  }, true);
+
+  window.addEventListener("keydown", e => {
+    const step = 7;
+    if (e.key === "ArrowLeft") rotationY -= step;
+    else if (e.key === "ArrowRight") rotationY += step;
+    else if (e.key === "ArrowUp") rotationX = Math.max(-85, rotationX - step);
+    else if (e.key === "ArrowDown") rotationX = Math.min(85, rotationX + step);
+    else return;
+    e.preventDefault();
+    applyRotation();
+  });
+
+  createBoard();
+  applyRotation();
+})();
+</script>
+</body>
+</html>
